@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Quiz & Leaderboard</title>
+    <style>
+        /* Modern, gamified styling */
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --dark: #2d3436;
+            --light: #dfe6e9;
+            --white: #ffffff;
+            --success: #00b894;
+            --danger: #d63031;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light);
+            color: var(--dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .app-container {
+            background: var(--white);
+            width: 100%;
+            max-width: 500px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        h1, h2 {
+            color: var(--primary);
+            margin-top: 0;
+        }
+
+        /* Utility Class to Hide Screens */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Forms & Inputs */
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin: 1rem 0;
+            border: 2px solid var(--secondary);
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        /* Buttons */
+        button {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s, transform 0.1s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #5b4bc4;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Quiz Specific Styling */
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 1.5rem 0;
+        }
+
+        .option-btn {
+            background: var(--light);
+            color: var(--dark);
+            border: 2px solid var(--secondary);
+            font-weight: normal;
+        }
+
+        .option-btn:hover {
+            background: var(--secondary);
+            color: var(--white);
+        }
+
+        .option-btn.selected {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+
+        /* Leaderboard Styling */
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            margin: 1.5rem 0;
+            text-align: left;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            background: var(--light);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .leaderboard-item:nth-child(1) { background: #ffeaa7; color: #d35400; } /* 1st Place Gold */
+        .leaderboard-item:nth-child(2) { background: #dfe6e9; color: #2d3436; } /* 2nd Place Silver */
+        .leaderboard-item:nth-child(3) { background: #fab1a0; color: #c0392b; } /* 3rd Place Bronze */
+
+        #score-display {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <div id="start-screen">
+            <h1>Brain Bash Quiz 🧠</h1>
+            <p>Test your knowledge and claim the top spot!</p>
+            <input type="text" id="player-name" placeholder="Enter your name to begin..." autocomplete="off">
+            <br>
+            <button id="start-btn">Start Quiz</button>
+            <br><br>
+            <a href="#" id="view-leaderboard-link" style="color: var(--primary); font-size: 0.9rem;">View Leaderboard</a>
+        </div>
+
+        <div id="quiz-screen" class="hidden">
+            <div id="score-display">Question <span id="current-q-num">1</span> of <span id="total-q-num">3</span></div>
+            <h2 id="question-text">Question goes here?</h2>
+            <div id="options-container" class="options-grid">
+                </div>
+            <button id="next-btn" class="hidden">Next Question</button>
+        </div>
+
+        <div id="leaderboard-screen" class="hidden">
+            <h1 id="result-message">Leaderboard 🏆</h1>
+            <h3 id="final-score-display" class="hidden"></h3>
+            
+            <ul id="leaderboard-list" class="leaderboard-list">
+                </ul>
+            
+            <button id="restart-btn">Play Again</button>
+            <br><br>
+            <button id="clear-btn" style="background: var(--danger); font-size: 0.8rem; padding: 8px 16px;">Clear Data</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. Quiz Data ---
+        const questions = [
+            {
+                question: "What does HTML stand for?",
+                options: ["Hyper Text Markup Language", "High Tech Modern Language", "Hyperlink Text Manipulation", "Home Tool Markup Language"],
+                answer: 0
+            },
+            {
+                question: "Which language is used for styling web pages?",
+                options: ["JavaScript", "Python", "CSS", "C++"],
+                answer: 2
+            },
+            {
+                question: "What is the capital of Japan?",
+                options: ["Seoul", "Beijing", "Tokyo", "Kyoto"],
+                answer: 2
+            },
+            {
+                question: "What is 8 x 7?",
+                options: ["42", "54", "56", "64"],
+                answer: 2
+            }
+        ];
+
+        // --- 2. State Variables ---
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let currentPlayer = "";
+        let selectedOptionIndex = null;
+        let leaderboard = JSON.parse(localStorage.getItem('quizLeaderboard')) || [];
+
+        // --- 3. DOM Elements ---
+        const startScreen = document.getElementById('start-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const leaderboardScreen = document.getElementById('leaderboard-screen');
+        
+        const playerNameInput = document.getElementById('player-name');
+        const startBtn = document.getElementById('start-btn');
+        const viewLeaderboardLink = document.getElementById('view-leaderboard-link');
+        
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const nextBtn = document.getElementById('next-btn');
+        const currentQNum = document.getElementById('current-q-num');
+        const totalQNum = document.getElementById('total-q-num');
+        
+        const resultMessage = document.getElementById('result-message');
+        const finalScoreDisplay = document.getElementById('final-score-display');
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const restartBtn = document.getElementById('restart-btn');
+        const clearBtn = document.getElementById('clear-btn');
+
+        // Initialize total questions count
+        totalQNum.textContent = questions.length;
+
+        // --- 4. Event Listeners ---
+        startBtn.addEventListener('click', startQuiz);
+        nextBtn.addEventListener('click', handleNextQuestion);
+        restartBtn.addEventListener('click', resetApp);
+        viewLeaderboardLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showLeaderboardScreen(false); // Show without playing
+        });
+        clearBtn.addEventListener('click', () => {
+            if(confirm("Are you sure you want to delete all scores?")) {
+                localStorage.removeItem('quizLeaderboard');
+                leaderboard = [];
+                renderLeaderboard();
+            }
+        });
+
+        // --- 5. Functions ---
+
+        function startQuiz() {
+            const name = playerNameInput.value.trim();
+            if (name === "") {
+                alert("Please enter your name to start!");
+                return;
+            }
+            
+            currentPlayer = name;
+            currentQuestionIndex = 0;
+            score = 0;
+            
+            startScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            // Reset state for new question
+            selectedOptionIndex = null;
+            nextBtn.classList.add('hidden');
+            optionsContainer.innerHTML = ''; // Clear old buttons
+            
+            const currentQ = questions[currentQuestionIndex];
+            questionText.textContent = currentQ.question;
+            currentQNum.textContent = currentQuestionIndex + 1;
+
+            // Generate option buttons dynamically
+            currentQ.options.forEach((optionText, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = optionText;
+                btn.classList.add('option-btn');
+                btn.addEventListener('click', () => selectOption(index, btn));
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function selectOption(index, buttonElement) {
+            selectedOptionIndex = index;
+            
+            // Remove 'selected' class from all buttons
+            const allButtons = optionsContainer.querySelectorAll('.option-btn');
+            allButtons.forEach(btn => btn.classList.remove('selected'));
+            
+            // Add 'selected' class to clicked button
+            buttonElement.classList.add('selected');
+            
+            // Show next button
+            nextBtn.classList.remove('hidden');
+            
+            // Change button text if it's the last question
+            if (currentQuestionIndex === questions.length - 1) {
+                nextBtn.textContent = "Finish Quiz";
+            } else {
+                nextBtn.textContent = "Next Question";
+            }
+        }
+
+        function handleNextQuestion() {
+            // Check if answer is correct
+            const currentQ = questions[currentQuestionIndex];
+            if (selectedOptionIndex === currentQ.answer) {
+                score++;
+            }
+
+            currentQuestionIndex++;
+
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endQuiz();
+            }
+        }
+
+        function endQuiz() {
+            // Save to leaderboard
+            const newScore = {
+                name: currentPlayer,
+                score: score,
+                date: new Date().toLocaleDateString()
+            };
+            
+            leaderboard.push(newScore);
+            
+            // Sort leaderboard (highest score first)
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Keep only top 10
+            if (leaderboard.length > 10) leaderboard.length = 10;
+            
+            // Save to local storage
+            localStorage.setItem('quizLeaderboard', JSON.stringify(leaderboard));
+
+            showLeaderboardScreen(true);
+        }
+
+        function showLeaderboardScreen(justFinished) {
+            startScreen.classList.add('hidden');
+            quizScreen.classList.add('hidden');
+            leaderboardScreen.classList.remove('hidden');
+
+            if (justFinished) {
+                resultMessage.textContent = "Quiz Complete! 🎉";
+                finalScoreDisplay.textContent = `You scored ${score} out of ${questions.length}`;
+                finalScoreDisplay.classList.remove('hidden');
+            } else {
+                resultMessage.textContent = "Leaderboard 🏆";
+                finalScoreDisplay.classList.add('hidden');
+            }
+
+            renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            leaderboardList.innerHTML = '';
+            
+            if (leaderboard.length === 0) {
+                leaderboardList.innerHTML = '<p style="text-align: center; color: #888;">No scores yet. Be the first!</p>';
+                return;
+            }
+
+            leaderboard.forEach((entry, index) => {
+                const li = document.createElement('li');
+                li.classList.add('leaderboard-item');
+                li.innerHTML = `
+                    <span>#${index + 1} ${entry.name}</span>
+                    <span>${entry.score}/${questions.length}</span>
+                `;
+                leaderboardList.appendChild(li);
+            });
+        }
+
+        function resetApp() {
+            playerNameInput.value = '';
+            leaderboardScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
